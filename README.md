@@ -137,7 +137,7 @@ The main shared concepts of `Azure::Core` include:
 
 Many client library operations **return** the templated `Azure::Core::Response<T>` type from the API calls. This type let's you get the raw HTTP response from the service request call the Azure service APIs make, along with the result of the operation to get more API specific details. This is the templated `T` operation result which can be extracted from the response.
 
-This library provides three means of accessing the templated `T` from the response `Response<OperationResult>`:
+This library provides three means of accessing the templated `T` from the response `Response<ExampleOperationResult>`:
 
 - `(Response<ExampleOperationResult>)->TProperty` will access `TProperty` of `ExampleOperationResult`
 - `(*Response<ExampleOperationResult>).TProperty` will dereference `Response<ExampleOperationResult>` to `ExampleOperationResult` and access `TProperty`
@@ -175,7 +175,7 @@ int main()
     // Alternatively, retrieve the LastModified date by dereferencing
     lastModified = (*response).LastModified;
 
-    // Alternatively, extract the OperationResult into a new memory location
+    // Alternatively, extract the operation result into a new memory location
     Models::UploadBlockBlobResult model = response.ExtractValue();
     printf("Last modified date of uploaded blob: %s\n", 
         model.LastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
