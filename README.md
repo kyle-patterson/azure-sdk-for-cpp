@@ -137,11 +137,11 @@ The main shared concepts of `Azure::Core` include:
 
 Many client library operations **return** the templated `Azure::Core::Response<T>` type from the API calls. This type let's you get the raw HTTP response from the service request call the Azure service APIs make, along with the result of the operation to get more API specific details. This is the templated `T` operation result which can be extracted from the response.
 
-This library provides three means of accessing the templated `T` from the response `OperationResult`:
+This library provides three means of accessing the templated `T` from the response `Response<OperationResult>`:
 
-- `OperationResult->TProperty` will access `TProperty` of `T` from the `OperationResult`
-- `(*OperationResult).TProperty` will dereference `OperationResult` to `T` and access `TProperty`
-- `OperationResult.ExtractValue().TProperty` will call `std::move()` on `T` before accessing `TProperty` from the new memory location.
+- `(Response<ExampleOperationResult>)->TProperty` will access `TProperty` of `ExampleOperationResult`
+- `(*Response<ExampleOperationResult>).TProperty` will dereference `Response<ExampleOperationResult>` to `ExampleOperationResult` and access `TProperty`
+- `Response<ExampleOperationResult>.ExtractValue().TProperty` will call `std::move()` on `ExampleOperationResult` before accessing `TProperty` from the new memory location.
 
 Using the previous example:
 
@@ -171,13 +171,9 @@ int main()
 
     // Retrieve the LastModified date of the BlobItem that was just uploaded
     Azure::Core::DateTime lastModified = response->LastModified;
-    printf("Last modified date of uploaded blob: %s\n", 
-        lastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
 
     // Alternatively, retrieve the LastModified date by dereferencing
     lastModified = (*response).LastModified;
-    printf("Last modified date of uploaded blob: %s\n", 
-        lastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
 
     // Alternatively, extract the OperationResult into a new memory location
     Models::UploadBlockBlobResult model = response.ExtractValue();
