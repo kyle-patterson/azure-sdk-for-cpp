@@ -50,7 +50,7 @@ Once the library is installed, follow the instructions from the console output t
 
 ```CMake
 find_package(azure-storage-blobs-cpp CONFIG REQUIRED)
-target_link_libraries(myProject PRIVATE Azure::azure-storage-blobs)
+target_link_libraries(<your project name> PRIVATE Azure::azure-storage-blobs)
 ```
 
 > NOTE: All the Azure client libraries take a dependency on `azure-core-cpp` which provides functionality commonly needed by all Azure clients. When you install any client library via vcpkg, it will bring in all the necessary dependencies as well. You don't need to install those individually to get started.
@@ -66,9 +66,160 @@ In order to use the SDK installed via vcpkg with CMake, you can use the toolchai
 > cmake --build [build directory]
 ```
 
-The **entry point** for most scenarios when using the SDK will be a top-level client type corresponding to the Azure service you want to talk to. For example, sending requests to blob storage can be done via the `Azure::Storage::Blobs::BlobClient` API.
+#### Using the SDK within your Application
+
+The **entry point** for most scenarios when using the SDK will be a top-level client type corresponding to the Azure service you want to talk to. For example, sending requests to blob storage can be done via the `Azure::Storage::Blobs::BlobClient` API. All APIs on the client type send HTTP requests to the cloud service and return back an HTTP `Response<T>`.
 
 All the Azure C++ SDK headers needed to be included are located within the `<azure>` folder, with sub-folders corresponding to each service. Similarly, all types and APIs can be found within the `Azure::` namespace. For example, to use functionality form `Azure::Core`, include the following header at the beginning of your application `#include <azure/core.hpp>`.
+
+Here's an example application to help you get started:
+
+```C++
+#include <iostream>
+
+// Include the necessary SDK headers
+#include <azure/core.hpp>
+#include <azure/storage/blobs.hpp>
+
+// Use the appropriate namespace using directives
+using namespace Azure::Storage::Blobs;
+
+// Get the required connection string/key from an environment variable or Azure KeyVault.
+std::string GetConnectionString();
+
+int main()
+{
+  std::string containerName = "testcontainer";
+  std::string blobName = "sample-blob";
+
+  try
+  {
+    // There are many types of client types, use the one that's appropriate
+    // for your scenario, such as BlobContainerClient.
+    BlobClient client = BlobClient::CreateFromConnectionString(
+        GetConnectionString(), containerName, blobName);
+    BlockBlobClient block = client.AsBlockBlobClient();
+    
+    // Assuming there is some Azure::Core::Http::BodyStream containing the data to upload.
+    // For example either a MemoryBodyStream or FileBodyStream.
+
+    Azure::Core::Response<Models::UploadBlockBlobResult> response = block.Upload(&stream);
+
+    Models::UploadBlockBlobResult model = response.ExtractValue();
+    printf("Last modified date of uploaded blob: %s\n", 
+        model.LastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+
+  }
+  catch (const Azure::Core::RequestFailedException& e)
+  {
+    std::cout << e.what() << std::endl;
+    return 1;
+  }
+  return 0;
+}
+```
+
+#### Key Core concepts
+
+Understanding the key concepts from the `azure-core-cpp` library, which is leveraged by all client libraries will also be helpful in getting started, regardless of which Azure service you want to use.
+
+The main shared concepts of `Azure::Core` include:
+
+- HTTP pipeline and HTTP policies such as retry and logging, which are configurable via service client specific options.
+- Handling streaming data and input/output (I/O) via `BodyStream` along with its derived types.
+- Accessing HTTP response details for the returned model of any SDK client operation, via `Response<T>`.
+- Polling long-running operations (LROs), via `Operation<T>`.
+- Exceptions for reporting errors from service requests in a consistent fashion via the base exception type `RequestFailedException`.
+- Abstractions for Azure SDK credentials (`TokenCredential`).
+- Replaceable HTTP transport layer to send requests and receive responses over the network.
+
+#### `Response <T>` Model Types
+
+Many client library operations **return** the templated `Azure::Core::Response<T>` type from the API calls. This type let's you get the raw HTTP response from the service request call the Azure service APIs make, along with the result of the operation to get more API specific details. This is the templated `T` operation result which can be extracted from the response.
+
+This library provides three means of accessing the templated `T` from the response `OperationResult`:
+
+- `OperationResult->TProperty` will access `TProperty` of `T` from the `OperationResult`
+- `(*OperationResult).TProperty` will dereference `OperationResult` to `T` and access `TProperty`
+- `OperationResult.ExtractValue().TProperty` will call `std::move()` on `T` before accessing `TProperty` from the new memory location.
+
+Using the previous example:
+
+```C++
+int main()
+{
+  std::string containerName = "testcontainer";
+  std::string blobName = "sample-blob";
+
+  try
+  {
+    // There are many types of client types, use the one that's appropriate
+    // for your scenario, such as BlobContainerClient.
+    BlobClient client = BlobClient::CreateFromConnectionString(
+        GetConnectionString(), containerName, blobName);
+    BlockBlobClient block = client.AsBlockBlobClient();
+    
+    // Assuming there is some Azure::Core::Http::BodyStream containing the data to upload.
+    // For example either a MemoryBodyStream or FileBodyStream.
+
+    Azure::Core::Response<Models::UploadBlockBlobResult> response = block.Upload(&stream);
+
+    // Retrieve the HTTPStatusCode of the Response<T>
+    Azure::Core::HttpStatusCode statusCode = response.GetRawResponse().GetStatusCode();
+    printf("HTTP Request returned status code: %d\n", 
+        (int)statusCode);
+
+    // Retrieve the LastModified date of the BlobItem that was just uploaded
+    Azure::Core::DateTime lastModified = response->LastModified;
+    printf("Last modified date of uploaded blob: %s\n", 
+        lastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+
+    // Alternatively, retrieve the LastModified date by dereferencing
+    lastModified = (*response).LastModified;
+    printf("Last modified date of uploaded blob: %s\n", 
+        lastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+
+    // Alternatively, extract the OperationResult into a new memory location
+    Models::UploadBlockBlobResult model = response.ExtractValue();
+    printf("Last modified date of uploaded blob: %s\n", 
+        model.LastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+  }
+  catch (const Azure::Core::RequestFailedException& e)
+  {
+    std::cout << e.what() << std::endl;
+    return 1;
+  }
+  return 0;
+}
+```
+
+#### Long Running Operations
+
+Some operations take a long time to complete and require polling for their status. Methods starting long-running operations return `Operation<T>` types.
+
+You can intermittently poll whether the operation has finished by using the `Poll()` method on the returned `Operation<T>` and track progress of the operation using `Value()`. Alternatively, if you just want to wait until the operation completes, you can use `PollUntilDone()`.
+
+```C++
+SomeServiceClient client;
+
+auto operation = *client.StartSomeLongRunningOperation();
+
+while (!operation.IsDone())
+{ 
+  std::unique_ptr<Http::RawResponse> response = operation.Poll();
+
+  // Only certain long-running service operations give back results with partial progress.
+   auto partialResult = operation.Value();
+  
+  // Your per-polling custom logic goes here, such as logging progress.
+
+  // You can also try to abort the operation if it doesn't complete in time.
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+};
+
+auto finalResult = operation.Value();
+```
 
 #### Visual Studio - CMakeSettings.json
 
@@ -107,7 +258,7 @@ For a complete list of available packages, please see the [latest available pack
 
 ### Vcpkg
 
-The following SDK library releases are available on [Vcpkg](https://github.com/microsoft/vcpkg):
+The following SDK library releases are available on [vcpkg](https://github.com/microsoft/vcpkg):
 
 * `azure-core-cpp`
 * `azure-identity-cpp`
@@ -116,7 +267,7 @@ The following SDK library releases are available on [Vcpkg](https://github.com/m
 * `azure-storage-files-datalake-cpp`
 * `azure-storage-files-shares-cpp`
 
-> NOTE: In case of getting linker errors when consuming the SDK on Windows, make sure that [Vcpkg triplet](https://vcpkg.readthedocs.io/en/latest/users/triplets/) being consumed matches the [CRT link flags](https://docs.microsoft.com/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-160) being set for your app or library build. See also `MSVC_USE_STATIC_CRT` build flag.
+> NOTE: In case of getting linker errors when consuming the SDK on Windows, make sure that [vcpkg triplet](https://vcpkg.readthedocs.io/en/latest/users/triplets/) being consumed matches the [CRT link flags](https://docs.microsoft.com/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-160) being set for your app or library build. See also `MSVC_USE_STATIC_CRT` build flag.
 
 ## Need help
 
