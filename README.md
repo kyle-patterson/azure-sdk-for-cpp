@@ -107,7 +107,7 @@ int main()
 
     Models::UploadBlockBlobResult model = response.ExtractValue();
     printf("Last modified date of uploaded blob: %s\n", 
-        model.LastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+        model.LastModified.ToString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
 
   }
   catch (const Azure::Core::RequestFailedException& e)
@@ -178,7 +178,7 @@ int main()
     // Alternatively, extract the operation result into a new memory location
     Models::UploadBlockBlobResult model = response.ExtractValue();
     printf("Last modified date of uploaded blob: %s\n", 
-        model.LastModified.GetString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
+        model.LastModified.ToString(Azure::Core::DateTime::DateFormat::Rfc3339).c_str());
   }
   catch (const Azure::Core::RequestFailedException& e)
   {
