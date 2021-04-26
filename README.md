@@ -195,4 +195,9 @@ Security issues and bugs should be reported privately, via email, to the Microso
 
 Azure SDK for C++ is licensed under the [MIT](https://github.com/Azure/azure-sdk-for-cpp/blob/master/LICENSE.txt) license.
 
+### Data Collection
+The software may collect information about you and your use of the software and send it to Microsoft. Microsoft may use this information to provide services and improve our products and services. You may turn off the telemetry as described in the repository. There are also some features in the software that may enable you and Microsoft to collect data from users of your applications. If you use these features, you must comply with applicable law, including providing appropriate notices to users of your applications together with a copy of Microsoft's privacy statement. Our privacy statement is located at https://go.microsoft.com/fwlink/?LinkID=824704. You can learn more about data collection and use in the help documentation and our privacy statement. Your use of the software operates as your consent to these practices.
+
+Azure SDK for C++ collects telemetry events through the use of the UserAgent, X-MS-UserAgent, and X-MS-AZSDK-Telemetry header fields when making a request to an Azure service, in accordance with our [General Guidelines](https://azure.github.io/azure-sdk/general_azurecore.html#telemetry-policy). For more information on what data is collected, view the internal [Azure::Core::Http::Policies::_internal::TelemetryPolicy](https://github.com/Azure/azure-sdk-for-cpp/blob/master/sdk/core/azure-core/src/http/telemetry_policy.cpp) namespace.
+
 ![Impressions](https://azure-sdk-impressions.azurewebsites.net/api/impressions/azure-sdk-for-cpp%2FREADME.png)
